@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Card Flip Match · 효과음 미리듣기</title>
+<style>body{font-family:system-ui,sans-serif;background:#f1faf5;color:#234538;margin:0}main{max-width:720px;margin:40px auto;padding:24px}section{background:white;border:1px solid #d4e8dc;border-radius:18px;margin:16px 0;padding:20px}h2{font-size:19px}audio{width:100%}p{line-height:1.7}</style>
+<main><h1>효과음 미리듣기</h1><p>짧고 가벼운 합성 효과음 5종입니다. 각 재생 버튼으로 확인하세요.</p>
+<section><h2>카드 뒤집기 · 0.16초</h2><p>가벼운 종이 터치와 밝게 올라가는 짧은 소리</p><audio controls preload="none" src="../sounds/flip.mp3"></audio></section>
+<section><h2>짝 일치 · 0.44초</h2><p>상승하는 두 음의 맑은 알림</p><audio controls preload="none" src="../sounds/match.mp3"></audio></section>
+<section><h2>짝 불일치 · 0.34초</h2><p>부드럽게 내려가는 두 음</p><audio controls preload="none" src="../sounds/mismatch.mp3"></audio></section>
+<section><h2>라운드 성공 · 1.12초</h2><p>밝은 상승 멜로디와 마무리 화음</p><audio controls preload="none" src="../sounds/success.mp3"></audio></section>
+<section><h2>시간 초과 · 0.84초</h2><p>자극적이지 않은 하강 멜로디</p><audio controls preload="none" src="../sounds/fail.mp3"></audio></section>
+<section><h2>등록한 배경음</h2><audio controls loop preload="none" src="../sounds/bgm/background.mp3"></audio><p>배경음은 기본 볼륨 30%, 효과음은 70%로 설정했습니다. 함께 재생해 음량 균형을 확인할 수 있습니다.</p></section>
+</main><script>document.querySelectorAll('audio').forEach(a=>{a.volume=a.hasAttribute('loop')?0.3:0.7;});</script></html>

@@ -1,0 +1,20 @@
+# Local tools and generated test output
+.tools/
+node_modules/
+test-results/
+playwright-report/
+
+# Credentials and machine-specific settings
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.venv/
+__pycache__/
+*.py[cod]
+
+# Editor and OS files
+.DS_Store
+Thumbs.db
+*.log

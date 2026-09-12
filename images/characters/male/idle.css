@@ -1,0 +1,22 @@
+.male-idle {
+  width: min(280px, 70vw);
+  aspect-ratio: 543 / 724;
+  background: url('./idle-v1.png') 0 0 / 400% 100% no-repeat;
+  transform-origin: center bottom;
+  animation: male-blink 3s step-end infinite, male-breathe 3s ease-in-out infinite;
+}
+@keyframes male-blink {
+  0%, 84%, 100% { background-position-x: 0%; }
+  87% { background-position-x: 33.333333%; }
+  90% { background-position-x: 66.666667%; }
+  93% { background-position-x: 100%; }
+}
+@keyframes male-breathe {
+  0%, 100% { transform: translateY(0) scaleY(1); }
+  50% { transform: translateY(-2px) scaleY(1.006); }
+}
+.male-idle.is-paused { animation-play-state: paused; }
+.male-idle.is-static { animation: none; background-position-x: 0%; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .male-idle { animation: none; background-position-x: 0%; transform: none; }
+}

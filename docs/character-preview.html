@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>캐릭터 선택 · 대기 애니메이션</title>
+<link rel="stylesheet" href="../images/characters/male/idle.css">
+<link rel="stylesheet" href="../images/characters/female/idle.css">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f5faf7;color:#244439;font-family:system-ui,sans-serif}main{max-width:780px;margin:48px auto;padding:24px}small{font-weight:700;color:#47816b;letter-spacing:2px}h1{font-size:clamp(24px,5vw,36px);margin-bottom:12px}p{line-height:1.7;color:#557267}.stage{display:grid;place-items:center;border-radius:28px;background:radial-gradient(ellipse at center,#fff9dc,#e0f4e9);padding:32px;margin:28px 0;min-height:400px;border:1px solid #d3e6db}.controls{display:flex;gap:12px;flex-wrap:wrap}button{min-height:44px;padding:12px 20px;border:1px solid #b9d6c5;border-radius:14px;background:white;color:#244439;font:inherit;cursor:pointer}button:focus-visible{outline:3px solid #248360;outline-offset:3px}.note{font-size:14px}
+</style>
+<main>
+<small>CARD FLIP MATCH · CHARACTERS</small>
+<h1>상큼발랄한 게임 친구들</h1>
+<p>남자·여자 캐릭터의 기본 디자인과 대기 동작<br>3초마다 눈을 깜빡이고, 가볍게 숨 쉬듯 움직입니다.</p>
+<div class="controls" role="group" aria-label="캐릭터 선택"><button data-character="male" aria-pressed="false">남자 캐릭터</button><button data-character="female" aria-pressed="true">여자 캐릭터</button></div>
+<div class="stage"><div id="character" class="female-idle" role="img" aria-label="레몬 머리핀과 코랄 후드를 착용한 갈색 단발머리 여자 캐릭터"></div></div>
+<div class="controls"><button id="pause" aria-pressed="false">일시정지</button><button id="still" aria-pressed="false">기본 포즈 보기</button></div>
+<p class="note">기기의 ‘움직임 줄이기’ 설정에서는 정적 포즈로 표시합니다. 현재 두 캐릭터의 대기 동작을 확인할 수 있습니다. 이 미리보기는 새로 만든 여자 캐릭터를 먼저 보여줍니다.</p>
+</main>
+<script>
+const character=document.querySelector('#character');
+document.querySelectorAll('[data-character]').forEach(button=>button.addEventListener('click',()=>{
+  const selected=button.dataset.character;
+  character.classList.remove('male-idle','female-idle');
+  character.classList.add(selected+'-idle');
+  character.setAttribute('aria-label',selected==='female'?'레몬 머리핀과 코랄 후드를 착용한 갈색 단발머리 여자 캐릭터':'민트 후드와 크림색 반바지를 입은 갈색 머리 남자 캐릭터');
+  document.querySelectorAll('[data-character]').forEach(item=>item.setAttribute('aria-pressed',item===button));
+}));
+document.querySelector('#pause').addEventListener('click',function(){const on=character.classList.toggle('is-paused');this.setAttribute('aria-pressed',on);this.textContent=on?'재생':'일시정지';});
+document.querySelector('#still').addEventListener('click',function(){const on=character.classList.toggle('is-static');this.setAttribute('aria-pressed',on);this.textContent=on?'애니메이션 보기':'기본 포즈 보기';});
+</script>
+</html>
