@@ -49,7 +49,10 @@ async function check(record,allowed,options){await commit(`user-${++serial}`,wri
   const recordName=writes(uid,first)[0].update.name;
   await commit(uid,[{update:{name:recordName,fields:{score:encode(999)}}}],false);
   await commit(uid,[{delete:recordName}],false);
-  await commit('other-user',[{update:{name:`${root}/submissionLimits/${uid}`,fields:{}}}],false);
+  const limitName=writes(uid,first)[1].update.name;
+  await commit('other-user',[{update:{name:limitName,fields:{}}}],false);
+  const own=await fetch(`http://${host}/v1/${limitName}`,{headers:{Authorization:`Bearer ${token(uid)}`}});assert.equal(own.status,200);
+  const foreign=await fetch(`http://${host}/v1/${limitName}`,{headers:{Authorization:`Bearer ${token('other-user')}`}});assert.equal(foreign.status,403);
   await commit(uid,[writes(uid,second)[1]],false);
   await commit('multi-user',[...writes('multi-user',fixture()),...writes('multi-user',fixture()).slice(0,1)],false);
   await new Promise(resolve=>setTimeout(resolve,11000));
