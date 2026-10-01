@@ -2,6 +2,7 @@
 .tools/audio/
 .tools/test-results/
 node_modules/
+dist/
 test-results/
 playwright-report/
 
