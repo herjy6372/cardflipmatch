@@ -51,19 +51,25 @@ async function checkOverflow(page,label){assert.equal(await page.evaluate(()=>do
   const C=sandbox.window.CardFlipMatch;
   assert.equal(C.storage.rankings().length,0);assert.equal(C.storage.settings.character,'female');assert.equal(C.storage.settings.bgmVolume,.6);
   C.storage.saveSettings({sfxVolume:.4});assert.equal(memory.get('cardFlipMatch:v2'),legacy);
-  pass('v3 keeps old round records untouched and migrates preferences only');
+  pass('v4 keeps old round records untouched and migrates preferences only');
   for(let round=1;round<=50;round++){
     const cfg=C.config.roundConfig(round),cards=C.config.createCards(round);
     assert.equal(cards.length,cfg.count);assert.equal(new Set(cards.map(c=>c.id)).size,cfg.count);
     const counts={};for(const c of cards)counts[c.pairId]=(counts[c.pairId]||0)+1;
     assert.ok(Object.values(counts).every(n=>n===2));
   }
-  for(const [r,count,sec] of [[1,4,30],[2,16,30],[4,16,28],[5,20,40],[9,20,36],[10,24,50],[19,24,41],[20,30,60],[29,30,51],[30,36,75],[39,36,66],[40,48,90],[50,48,80]]){
+  for(const [r,count,sec] of [[1,4,30],[2,4,29],[5,4,26],[6,8,38],[10,8,34],[11,12,46],[16,16,54],[21,20,62],[26,24,70],[31,28,78],[36,32,86],[41,40,102],[46,48,118],[50,48,114]]){
     const c=C.config.roundConfig(r);assert.equal(c.count,count);assert.equal(c.seconds,sec);
   }
   for(const r of [0,51,1.5,NaN])assert.throws(()=>C.config.roundConfig(r));
-  pass('All 50 round configurations, boundaries, unique cards and exact pairs unchanged');
-  const record=(id,overrides={})=>({id,nickname:'테스트',version:'difficulty-v1',scoringVersion:'run-total-v1',round:2,completedRounds:1,reason:'timeout',score:400,bonus:100,elapsedMs:40000,attempts:3,matchedPairs:3,createdAt:100,...overrides});
+  for(let round=1;round<=50;round++){
+    const easy=C.config.roundConfig(round,'easy'),normal=C.config.roundConfig(round,'normal'),hard=C.config.roundConfig(round,'hard');
+    assert.ok(easy.seconds>normal.seconds && normal.seconds>hard.seconds);
+    for(const mode of ['easy','hard']) assert.equal(C.config.createCards(round,mode).length,normal.count);
+  }
+  assert.throws(()=>C.config.roundConfig(1,'invalid'));
+  pass('All 150 difficulty/round configurations, progression, boundaries, unique cards and exact pairs');
+  const record=(id,overrides={})=>({id,nickname:'테스트',difficulty:'normal',version:'difficulty-v2',scoringVersion:'run-total-v1',round:2,completedRounds:1,reason:'timeout',score:400,bonus:100,elapsedMs:40000,attempts:3,matchedPairs:3,createdAt:100,...overrides});
   C.storage.addRecord(record('a'));C.storage.addRecord(record('b'));C.storage.addRecord(record('c',{score:390,bonus:90}));
   C.storage.addRecord(record('d',{round:1,completedRounds:0,reason:'quit',score:100,bonus:0,matchedPairs:1,elapsedMs:1000}));
   assert.equal(C.storage.rankings().map(x=>x.rank).join(','),'1,1,3,4');
@@ -75,6 +81,10 @@ async function checkOverflow(page,label){assert.equal(await page.evaluate(()=>do
   assert.ok(C.storage.compare(record('a',{elapsedMs:1000}),record('b',{elapsedMs:2000}))<0);
   assert.ok(C.storage.compare(record('a',{attempts:3}),record('b',{attempts:4}))<0);
   pass('Total-score ranking across rounds, ties, validation, duplicate guard and no age/gender persistence');
+  C.storage.addRecord(record('easy',{difficulty:'easy'}));
+  assert.equal(C.storage.rankings('easy').length,1);assert.equal(C.storage.rankings('hard').length,0);
+  const pending=C.storage.pending().length;C.storage.markSynced('easy');assert.equal(C.storage.pending().length,pending-1);
+  pass('Difficulty rankings are separated and successful uploads leave the pending queue');
   const browser=await chromium.launch({headless:true,...(process.env.GAME_TEST_BROWSER?{executablePath:process.env.GAME_TEST_BROWSER}:{})});
   try {
     const context=await browser.newContext({viewport:{width:1280,height:1000}});
@@ -99,7 +109,7 @@ async function checkOverflow(page,label){assert.equal(await page.evaluate(()=>do
       assert.equal(await view(page),'play');assert.equal(Number(await page.locator('#round-number').textContent()),round);
       assert.equal(await page.locator('#board .card').count(),cfg.count);
       assert.equal(Number((await page.locator('#score-value').textContent()).replaceAll(',','')),expectedScore);
-      if(round===40){
+      if(round===46){
         for(const width of [320,375,768,1280]){
           await page.setViewportSize({width,height:900});await checkOverflow(page,`48 cards at ${width}`);
           const sizes=await page.locator('.card').evaluateAll(bs=>bs.map(b=>({w:b.getBoundingClientRect().width,h:b.getBoundingClientRect().height})));
@@ -133,10 +143,10 @@ async function checkOverflow(page,label){assert.equal(await page.evaluate(()=>do
     pass('Final total ranking, safe text, no duplicate save, new game resets to round 1 and zero');
     await solve(page);await page.locator('#next-round').click();await matchOne(page);await advanceTime(page,31000);
     await page.locator('.card:not(.is-matched)').first().click();assert.equal(await view(page),'result');
-    let last=(await records(page)).find(r=>r.reason==='timeout');assert.equal(last.round,2);assert.equal(last.completedRounds,1);assert.equal(last.score,600);assert.equal(last.bonus,300);assert.equal(last.matchedPairs,3);assert.equal(last.elapsedMs,30000);
+    let last=(await records(page)).find(r=>r.reason==='timeout');assert.equal(last.round,2);assert.equal(last.completedRounds,1);assert.equal(last.score,600);assert.equal(last.bonus,300);assert.equal(last.matchedPairs,3);assert.equal(last.elapsedMs,29000);
     pass('Timeout in round 2 includes completed round score plus current partial score, with no failure bonus');
-    await restart(page);await solve(page);await page.locator('#next-round').click();await matchOne(page);await mismatch(page);
-    await quit(page);assert.equal(await view(page),'result');last=(await records(page)).find(r=>r.reason==='quit');assert.equal(last.score,600);assert.equal(last.completedRounds,1);assert.equal(last.attempts,4);
+    await restart(page);await solve(page);await page.locator('#next-round').click();await mismatch(page);
+    await quit(page);assert.equal(await view(page),'result');last=(await records(page)).find(r=>r.reason==='quit');assert.equal(last.score,500);assert.equal(last.completedRounds,1);assert.equal(last.attempts,3);
     const count=(await records(page)).length;await page.locator('#play-panel .quit-button').dispatchEvent('click');await page.waitForTimeout(600);assert.equal((await records(page)).length,count);
     await page.locator('#show-ranking').click();await page.setViewportSize({width:320,height:900});await checkOverflow(page,'final totals scoreboard');
     assert.equal(await page.locator('#ranking-body tr:first-child td:nth-child(3)').evaluate(cell=>{
@@ -156,6 +166,16 @@ async function checkOverflow(page,label){assert.equal(await page.evaluate(()=>do
     assert.equal(await page.locator('#character-sprite').evaluate(el=>getComputedStyle(el).animationName),'none');
     await page.reload();assert.equal(await view(page),'ready');assert.equal(await page.locator('input[value="female"]').isChecked(),true);assert.equal(await page.locator('#nickname').inputValue(),'');
     pass('Responsive 320/375/768/1280px, 44px cards, reduced motion and settings restore unchanged');
+    for (const mode of ['easy','hard']) {
+      await page.locator('#difficulty').selectOption(mode);await start(page);await solve(page);await quit(page);
+      const stored=await page.evaluate(mode=>CardFlipMatch.storage.rankings(mode),mode);
+      assert.equal(stored.length,1);assert.equal(stored[0].difficulty,mode);
+      await page.locator('#show-ranking').click();assert.equal(await page.locator('#ranking-body tr').count(),1);
+      await page.locator('#ranking-panel .home-button').click();await page.reload();
+      assert.equal(await page.locator('#difficulty').inputValue(),mode);
+    }
+    await page.locator('#difficulty').selectOption('normal');
+    pass('Easy/hard gameplay, difficulty selection persistence and isolated ranking UI');
     await page.evaluate(()=>localStorage.setItem(CardFlipMatch.storage.key,'{broken'));await page.reload();await start(page);await quit(page);assert.equal(await view(page),'result');assert.equal(await page.locator('#notice').isVisible(),true);
     assert.deepEqual(errors,[]);await context.close();
     const blocked=await browser.newContext();await blocked.addInitScript(()=>{Storage.prototype.getItem=()=>{throw new Error('blocked')};Storage.prototype.setItem=()=>{throw new Error('blocked')};});

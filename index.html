@@ -8,6 +8,8 @@
   <link rel="stylesheet" href="css/style.css">
   <script defer src="js/config.js"></script>
   <script defer src="js/storage.js"></script>
+  <script defer src="js/firebase-config.js"></script>
+  <script defer src="js/cloud.js"></script>
   <script defer src="js/character.js"></script>
   <script defer src="js/audio.js"></script>
   <script defer src="js/game.js"></script>
@@ -27,7 +29,7 @@
       <div id="notice" class="notice" role="status" hidden></div>
       <div class="game-layout" id="layout">
         <section id="ready-panel" class="panel setup" aria-labelledby="setup-title">
-          <div class="section-heading"><span class="step-label">01 / READY</span><span class="pill">1라운드 · 4장 · 30초</span></div>
+          <div class="section-heading"><span class="step-label">01 / READY</span><span class="pill" id="difficulty-preview">1라운드 · 4장 · 30초</span></div>
           <h2 id="setup-title" tabindex="-1">반가워요, 플레이어!</h2>
           <p class="muted">함께할 이름과 캐릭터를 정해 주세요.</p>
           <form id="profile-form">
@@ -37,7 +39,10 @@
               <div><label for="age">나이</label><select id="age" name="age" required><option value="">선택해 주세요</option><option value="undisclosed">선택 안 함</option></select></div>
               <div><label for="gender">성별</label><select id="gender" name="gender" required><option value="">선택해 주세요</option><option value="male">남성</option><option value="female">여성</option><option value="other">기타</option><option value="undisclosed">선택 안 함</option></select></div>
             </div>
-            <p id="profile-note" class="fine">별명은 이 브라우저의 순위표에 저장돼요.<br>나이·성별은 저장하지 않으며, 게임 난이도에 영향을 주지 않아요.</p>
+            <p id="profile-note" class="fine">별명과 게임 기록은 로컬에 저장되며, 온라인 모드에서는 공유 순위표에 공개돼요.<br>나이·성별은 저장·전송하지 않으며, 게임 난이도에 영향을 주지 않아요.</p>
+            <label for="difficulty">게임 난이도</label>
+            <select id="difficulty" name="difficulty" aria-describedby="difficulty-note"><option value="easy">쉬움 · 넉넉한 시간</option><option value="normal" selected>보통 · 기본 도전</option><option value="hard">어려움 · 짧은 시간</option></select>
+            <p id="difficulty-note" class="fine">5라운드마다 카드 수가 늘어나요. 난이도별 순위는 따로 비교해요.</p>
             <fieldset><legend>함께할 캐릭터 <span class="field-hint">자유롭게 선택해요</span></legend>
               <div class="character-options">
                 <label class="character-option"><input type="radio" name="character" value="male" checked><span><span class="avatar male-avatar" aria-hidden="true"></span>남자 캐릭터<span class="selection-dot" aria-hidden="true">✓</span></span></label>
@@ -80,12 +85,12 @@
           <button class="text-button home-button" type="button">처음으로</button>
         </section>
         <section id="ranking-panel" class="panel ranking-panel" aria-labelledby="ranking-title" hidden>
-          <div class="section-heading"><span class="step-label">MY LOCAL LEADERBOARD</span><span class="pill" id="ranking-round"></span></div>
+          <div class="section-heading"><span class="step-label" id="ranking-source">LOCAL LEADERBOARD</span><span class="pill" id="ranking-round"></span></div>
           <h2 id="ranking-title" tabindex="-1">우리의 기억력 순위</h2>
-          <p class="muted">이 브라우저에서 끝낸 게임의 누적 총점 기록이에요.</p>
+          <p class="muted" id="ranking-description">같은 난이도에서 끝낸 게임의 누적 총점 기록이에요.</p>
           <p id="my-rank" class="rank-callout"></p>
-          <p class="fine">높은 총점 → 많이 완료한 라운드 → 짧은 총 시간 → 적은 총 시도<br>모두 같으면 공동 순위 · 최근 500개 게임</p>
-          <div class="table-wrap"><table><caption class="sr-only">게임 전체 총점의 로컬 순위</caption><thead><tr><th scope="col">순위</th><th scope="col">별명 / 결과</th><th scope="col">총점</th><th scope="col">총 시간<br>시도</th></tr></thead><tbody id="ranking-body"></tbody></table></div>
+          <p class="fine">높은 총점 → 많이 완료한 라운드 → 짧은 총 시간 → 적은 총 시도<br>모두 같으면 공동 순위 · 온라인은 상위 100개 기록 표시</p>
+          <div class="table-wrap"><table><caption class="sr-only">같은 난이도의 게임 전체 총점 순위</caption><thead><tr><th scope="col">순위</th><th scope="col">별명 / 결과</th><th scope="col">총점</th><th scope="col">총 시간<br>시도</th></tr></thead><tbody id="ranking-body"></tbody></table></div>
           <button id="continue-button" class="primary" type="button"></button>
           <div class="ranking-actions"><button id="back-result" class="text-button" type="button">결과 다시 보기</button><button class="text-button home-button" type="button">처음으로</button></div>
         </section>
@@ -97,6 +102,7 @@
           <div class="mini-cards" aria-hidden="true"><span>🍓</span><span>✿</span><span>🍓</span></div>
         </aside>
       </div>
+      <section class="audio-controls" aria-label="순위 동기화"><span id="sync-status" class="fine" role="status">로컬 모드 · Firebase 미설정</span><button id="sync-retry" class="text-button" type="button" hidden>다시 동기화</button></section>
       <section class="audio-controls" aria-label="소리 설정">
         <span class="audio-heading">♪ 소리 설정</span>
         <div class="audio-group"><button id="bgm-toggle" class="sound-button" type="button" aria-pressed="false">배경음 켜짐</button><label for="bgm-volume" class="sr-only">배경음 볼륨</label><input id="bgm-volume" type="range" min="0" max="100" value="30"><output id="bgm-output" for="bgm-volume">30%</output></div>

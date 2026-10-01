@@ -1,10 +1,11 @@
-# Local tools and generated test output
-.tools/
+# Local tools, binaries and generated test results
+.tools/audio/
+.tools/test-results/
 node_modules/
 test-results/
 playwright-report/
 
-# Credentials and machine-specific settings
+# Local credentials and machine configuration
 .env
 .env.*
 !.env.example
@@ -13,8 +14,17 @@ playwright-report/
 .venv/
 __pycache__/
 *.py[cod]
-
-# Editor and OS files
-.DS_Store
-Thumbs.db
 *.log
+*service-account*.json
+*serviceAccount*.json
+*-firebase-adminsdk-*.json
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+
+# OS/editor files
+Thumbs.db
+Desktop.ini
+.DS_Store
+.vscode/

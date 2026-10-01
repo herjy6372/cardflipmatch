@@ -16,6 +16,7 @@
   C.notify=message=>{ $("notice").textContent=message; $("notice").hidden=false; };
   function announce(message) { $("announcement").textContent=message; }
   function view(name,focusId) {
+    if (name!=="ranking") C.cloud.stopWatching();
     panels.forEach(panel=>{ $(`${panel}-panel`).hidden=panel!==name; });
     $("layout").classList.toggle("is-active",name!=="ready");
     document.body.dataset.view=name;
@@ -70,12 +71,12 @@
     if (isPreparing || state==="PLAYING" || !profile) return;
     isPreparing=true; $("start-button").disabled=true;
     try {
-      const nextConfig=C.config.roundConfig(nextRound),nextCards=C.config.createCards(nextRound);
+      const nextConfig=C.config.roundConfig(nextRound,profile.difficulty),nextCards=C.config.createCards(nextRound,profile.difficulty);
       cleanup(); state="READY"; cfg=nextConfig; round=nextRound; cards=nextCards;
       score=0; attempts=0; matchedPairs=0; finalResult=null; warned=false; roundSettled=false;
       C.character.reset();
       $("round-number").textContent=String(round).padStart(2,"0");
-      $("player-greeting").textContent=`${profile.nickname}님, ${cfg.pairs}쌍의 그림을 찾아 주세요.`;
+      $("player-greeting").textContent=`${profile.nickname}님 · ${C.config.difficulties[profile.difficulty].label} · ${cfg.pairs}쌍의 그림을 찾아 주세요.`;
       renderBoard();
       startedAt=Date.now(); deadlineAt=startedAt+cfg.seconds*1000; state="PLAYING";
       refreshBoard(); updateStats(startedAt); view("play","round-heading");
@@ -149,9 +150,10 @@
     state="GAME_OVER";
     settleRound(now,reason==="complete");
     const id=typeof crypto.randomUUID==="function"?crypto.randomUUID():`${now}-${gameId}-${Math.random().toString(36).slice(2)}`;
-    finalResult=Object.freeze({id,nickname:profile.nickname,version:C.config.version,scoringVersion:C.config.scoringVersion,round,reason,...totals,createdAt:now});
+    finalResult=Object.freeze({id,nickname:profile.nickname,difficulty:profile.difficulty,version:C.config.version,scoringVersion:C.config.scoringVersion,round,reason,...totals,createdAt:now});
     cleanup(); refreshBoard(); updateStats(now);
     const saved=C.storage.addRecord(finalResult);
+    void C.cloud.sync();
     if (!saved) C.notify("기록을 저장할 수 없습니다. 순위는 이번 실행에서만 유지돼요.");
     C.character.show(reason==="complete"?"success":"fail",true);
     C.audio.play(reason==="complete"?"success":"fail");
@@ -168,9 +170,17 @@
   }
   function showRankings() {
     if (state!=="GAME_OVER" || !finalResult) return;
-    const entries=C.storage.rankings(), mine=entries.find(r=>r.id===finalResult.id);
-    $("ranking-round").textContent="전체 게임 총점";
-    $("my-rank").textContent=mine?`${profile.nickname}님은 ${entries.length}개 기록 중 ${mine.rank}위예요!`:"이번 도전의 순위를 확인해 보세요.";
+    renderRankings(C.storage.rankings(profile.difficulty),false);
+    view("ranking","ranking-title");
+    C.cloud.watch(profile.difficulty,entries=>renderRankings(entries,true),()=>renderRankings(C.storage.rankings(profile.difficulty),false));
+  }
+  function renderRankings(entries,online) {
+    if (state!=="GAME_OVER" || !finalResult) return;
+    const mine=entries.find(r=>r.id===finalResult.id);
+    $("ranking-round").textContent=`${C.config.difficulties[profile.difficulty].label} · 전체 총점`;
+    $("ranking-source").textContent=online?"ONLINE LEADERBOARD":"LOCAL LEADERBOARD";
+    $("ranking-description").textContent=online?"공유 순위표의 상위 100개 기록이에요. 같은 난이도끼리 비교하며 실시간으로 갱신돼요.":"이 브라우저에 저장된 최근 500개 게임 중 같은 난이도의 기록이에요.";
+    $("my-rank").textContent=mine?`${profile.nickname}님은 ${online?"온라인":"로컬"} ${mine.rank}위예요!`:online?"이번 기록이 동기화 중이거나 온라인 상위 100개 기록에 포함되지 않았어요.":"이번 도전의 순위를 확인해 보세요.";
     const body=$("ranking-body"); body.replaceChildren();
     for (const entry of entries) {
       const row=document.createElement("tr");
@@ -184,7 +194,6 @@
       row.append(rankCell,nameCell,scoreCell,timeCell); body.append(row);
     }
     $("continue-button").textContent="1라운드부터 새 게임 →";
-    view("ranking","ranking-title");
   }
   function home() {
     if (state==="PLAYING" || state==="ROUND_CLEAR") return;
@@ -200,7 +209,10 @@
     if (!$("profile-form").reportValidity()) return;
     const age=$("age").value,gender=$("gender").value;
     if (!(age==="undisclosed" || (Number.isInteger(Number(age)) && Number(age)>=1 && Number(age)<=120)) || !["male","female","other","undisclosed"].includes(gender)) return;
-    profile={nickname,age:age==="undisclosed"?null:Number(age),gender};
+    const difficulty=$("difficulty").value;
+    if (!Object.hasOwn(C.config.difficulties,difficulty)) return;
+    C.storage.saveSettings({difficulty});
+    profile={nickname,age:age==="undisclosed"?null:Number(age),gender,difficulty};
     $("nickname").value=nickname; resetRun(); startRound(1,true);
   });
   document.querySelectorAll('input[name="character"]').forEach(input=>input.addEventListener("change",()=>{ if (state==="READY" && !isPreparing) C.character.choose(input.value); }));
@@ -223,5 +235,17 @@
   document.addEventListener("visibilitychange",()=>{ if (!document.hidden) tick(); C.audio.visibility(); });
   window.addEventListener("pagehide",()=>C.audio.stop());
   if (!C.storage.available) C.notify("저장된 기록을 읽을 수 없어 기본 설정으로 시작합니다. 게임은 계속할 수 있어요.");
-  C.character.preload(); view("ready");
+  $("difficulty").value=C.storage.settings.difficulty;
+  function previewDifficulty() {
+    const config=C.config.roundConfig(1,$("difficulty").value);
+    $("difficulty-preview").textContent=`1라운드 · ${config.count}장 · ${config.seconds}초`;
+  }
+  $("difficulty").addEventListener("change",previewDifficulty); previewDifficulty();
+  C.cloud.subscribe(status=>{ $("sync-status").textContent=status; $("sync-retry").hidden=!C.cloud.enabled; });
+  $("sync-retry").addEventListener("click",async()=>{
+    $("sync-retry").disabled=true;
+    try { await C.cloud.sync(); if (document.body.dataset.view==="ranking") showRankings(); }
+    finally { $("sync-retry").disabled=false; }
+  });
+  C.character.preload(); view("ready"); void C.cloud.sync();
 })();

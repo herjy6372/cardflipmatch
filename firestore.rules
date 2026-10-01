@@ -1,0 +1,42 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function totalPairs(round) { return [0,2,4,6,8,10,14,18,22,26,30,36,42,48,54,60,68,76,84,92,100,110,120,130,140,150,162,174,186,198,210,224,238,252,266,280,296,312,328,344,360,380,400,420,440,460,484,508,532,556,580][round]; }
+    function totalSeconds(round, difficulty) {
+      return difficulty == 'easy' ? [0,36,71,105,138,170,218,265,311,356,400,460,519,577,634,690,762,833,903,972,1040,1124,1207,1289,1370,1450,1546,1641,1735,1828,1920,2028,2135,2241,2346,2450,2570,2689,2807,2924,3040,3184,3327,3469,3610,3750,3918,4085,4251,4416,4580][round]
+        : difficulty == 'normal' ? [0,30,59,87,114,140,178,215,251,286,320,366,411,455,498,540,594,647,699,750,800,862,923,983,1042,1100,1170,1239,1307,1374,1440,1518,1595,1671,1746,1820,1906,1991,2075,2158,2240,2342,2443,2543,2642,2740,2858,2975,3091,3206,3320][round]
+        : [0,22,43,63,82,100,128,155,181,206,230,264,297,329,360,390,430,469,507,544,580,626,671,715,758,800,852,903,953,1002,1050,1108,1165,1221,1276,1330,1394,1457,1519,1580,1640,1716,1791,1865,1938,2010,2098,2185,2271,2356,2440][round];
+    }
+    function validRecord(r, board, recordId) {
+      return r.keys().hasAll(['id','nickname','difficulty','version','scoringVersion','round','completedRounds','reason','score','bonus','elapsedMs','attempts','matchedPairs','createdAt','uid','submittedAt'])
+        && r.keys().hasOnly(['id','nickname','difficulty','version','scoringVersion','round','completedRounds','reason','score','bonus','elapsedMs','attempts','matchedPairs','createdAt','uid','submittedAt'])
+        && r.uid == request.auth.uid
+        && r.id is string && r.id.matches('^[A-Za-z0-9-]{1,100}$')
+        && recordId == r.uid + '_' + r.id
+        && r.nickname is string && r.nickname.size() >= 1 && r.nickname.size() <= 12
+        && r.nickname.matches('.*[^ ].*') && !r.nickname.matches('.*[\\x00-\\x1F\\x7F].*')
+        && r.difficulty in ['easy','normal','hard']
+        && r.version == 'difficulty-v2' && r.scoringVersion == 'run-total-v1'
+        && board == r.version + '_' + r.scoringVersion + '_' + r.difficulty
+        && r.round is int && r.round >= 1 && r.round <= 50
+        && r.completedRounds is int && r.completedRounds >= 0 && r.completedRounds <= r.round
+        && ((r.reason == 'complete' && r.round == 50 && r.completedRounds == 50)
+          || (r.reason == 'timeout' && r.completedRounds == r.round - 1)
+          || (r.reason == 'quit' && r.completedRounds in [r.round - 1,r.round] && r.completedRounds < 50))
+        && r.matchedPairs is int && r.matchedPairs >= totalPairs(r.completedRounds)
+        && (r.completedRounds == r.round ? r.matchedPairs == totalPairs(r.round) : r.matchedPairs < totalPairs(r.round))
+        && r.bonus is int && r.bonus >= 0 && r.bonus <= totalSeconds(r.completedRounds,r.difficulty) * 10 && r.bonus % 10 == 0
+        && r.score is int && r.score == r.matchedPairs * 100 + r.bonus
+        && r.elapsedMs is number && r.elapsedMs >= 0 && r.elapsedMs <= totalSeconds(r.round,r.difficulty) * 1000
+        && r.attempts is int && r.attempts >= r.matchedPairs && r.attempts <= 5000000
+        && r.createdAt is number && r.createdAt >= 0 && r.createdAt <= 9007199254740991
+        && r.submittedAt == request.time;
+    }
+    match /leaderboards/{board}/records/{recordId} {
+      allow get: if request.auth != null;
+      allow list: if request.auth != null && request.query.limit != null && request.query.limit <= 100;
+      allow create: if request.auth != null && validRecord(request.resource.data,board,recordId);
+      allow update, delete: if false;
+    }
+  }
+}

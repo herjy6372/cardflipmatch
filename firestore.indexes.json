@@ -1,0 +1,14 @@
+{
+  "indexes": [{
+    "collectionGroup": "records",
+    "queryScope": "COLLECTION",
+    "fields": [
+      { "fieldPath": "score", "order": "DESCENDING" },
+      { "fieldPath": "completedRounds", "order": "DESCENDING" },
+      { "fieldPath": "elapsedMs", "order": "ASCENDING" },
+      { "fieldPath": "attempts", "order": "ASCENDING" },
+      { "fieldPath": "createdAt", "order": "ASCENDING" }
+    ]
+  }],
+  "fieldOverrides": []
+}
