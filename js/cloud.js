@@ -1,7 +1,7 @@
 "use strict";
 (() => {
   const C=window.CardFlipMatch, settings=C.firebaseSettings;
-  let backend=null, initializing=null, syncing=null, unsubscribe=null, watchGeneration=0;
+  let backend=null, initializing=null, syncing=null, unsubscribe=null, watchGeneration=0, retryTimer=null;
   let status=settings.enabled?"연결 준비 중":"로컬 모드 · Firebase 미설정";
   const subscribers=new Set();
   function publish(message) { status=message; subscribers.forEach(fn=>fn(status)); }
@@ -33,6 +33,7 @@
   function sync() {
     if (!settings.enabled) return Promise.resolve(false);
     if (syncing) return syncing;
+    clearTimeout(retryTimer); retryTimer=null;
     syncing=(async()=>{
       try {
         const b=await initialize();
@@ -40,15 +41,28 @@
         // Same document id + transaction makes a retry safe after an uncertain response.
         while (C.storage.pending().length) {
           const record=C.storage.pending()[0];
-          const ref=b.sdk.doc(b.db,"leaderboards",`${record.version}_${record.scoringVersion}_${record.difficulty}`,"records",`${b.uid}_${record.id}`);
+          const board=`${record.version}_${record.scoringVersion}_${record.difficulty}`, recordId=`${b.uid}_${record.id}`;
+          const ref=b.sdk.doc(b.db,"leaderboards",board,"records",recordId);
+          const limitRef=b.sdk.doc(b.db,"submissionLimits",b.uid);
           await b.sdk.runTransaction(b.db,async tx=>{
             const existing=await tx.get(ref);
-            if (!existing.exists()) tx.set(ref,{...C.storage.cleanRecord(record),uid:b.uid,submittedAt:b.sdk.serverTimestamp()});
+            if (existing.exists()) return;
+            const limit=await tx.get(limitRef);
+            if (limit.exists() && limit.data().lastAt.toMillis()+10500>Date.now()) {
+              throw Object.assign(new Error('cooldown'),{code:'submission-cooldown'});
+            }
+            tx.set(ref,{...C.storage.cleanRecord(record),createdAt:b.sdk.serverTimestamp(),uid:b.uid,submittedAt:b.sdk.serverTimestamp()});
+            tx.set(limitRef,{lastAt:b.sdk.serverTimestamp(),board,recordId});
           });
           C.storage.markSynced(record.id);
         }
         publish("Firebase 동기화 완료"); return true;
       } catch(error) {
+        if (error?.code==='submission-cooldown') {
+          publish('연속 제출 대기 중 · 기록을 보관하고 잠시 후 자동 동기화해요.');
+          clearTimeout(retryTimer); retryTimer=setTimeout(()=>{ retryTimer=null; void sync(); },11000);
+          return false;
+        }
         publish(`로컬 기록 보관 중 · ${error?.message && !error.code?error.message:describe(error)}`);
         return false;
       }
@@ -66,7 +80,10 @@
       const query=b.sdk.query(collection,b.sdk.orderBy("score","desc"),b.sdk.orderBy("completedRounds","desc"),b.sdk.orderBy("elapsedMs","asc"),b.sdk.orderBy("attempts","asc"),b.sdk.orderBy("createdAt","asc"),b.sdk.limit(100));
       unsubscribe=b.sdk.onSnapshot(query,snapshot=>{
         if (generation!==watchGeneration) return;
-        const records=snapshot.docs.map(doc=>doc.data()).filter(C.storage.validateRecord);
+        const records=snapshot.docs.map(doc=>{
+          const r=doc.data();
+          return {...r,createdAt:typeof r.createdAt?.toMillis==='function'?r.createdAt.toMillis():r.createdAt};
+        }).filter(C.storage.validateRecord);
         onRecords(C.storage.rankings(difficulty,records));
       },error=>{
         if (generation!==watchGeneration) return;
@@ -80,5 +97,5 @@
   C.cloud={get enabled(){return settings.enabled;},get status(){return status;},sync,watch,stopWatching,
     subscribe(fn){subscribers.add(fn);fn(status);return ()=>subscribers.delete(fn);}};
   window.addEventListener("online",()=>sync());
-  window.addEventListener("pagehide",stopWatching);
+  window.addEventListener("pagehide",()=>{stopWatching();clearTimeout(retryTimer);});
 })();

@@ -17,6 +17,28 @@ service cloud.firestore {
         : difficulty == 'normal' ? ${JSON.stringify(seconds.normal)}[round]
         : ${JSON.stringify(seconds.hard)}[round];
     }
+    function validTiming(r) {
+      let completed = totalSeconds(r.completedRounds,r.difficulty);
+      let total = totalSeconds(r.round,r.difficulty);
+      let used = completed - r.bonus / 10;
+      let minimum = r.reason == 'timeout' ? total - r.bonus / 10 - r.completedRounds : used - r.completedRounds;
+      return r.elapsedMs >= minimum * 1000
+        && r.elapsedMs <= (total - r.bonus / 10) * 1000
+        && r.elapsedMs >= r.attempts * 100
+        && r.elapsedMs >= (r.attempts - r.matchedPairs - 1) * ${C.flipBackMs};
+    }
+    function linkedSubmission(board, recordId) {
+      let limit = getAfter(/databases/$(database)/documents/submissionLimits/$(request.auth.uid)).data;
+      return limit.lastAt == request.time && limit.board == board && limit.recordId == recordId;
+    }
+    function validLimit(uid) {
+      let r = request.resource.data;
+      let record = /databases/$(database)/documents/leaderboards/$(r.board)/records/$(r.recordId);
+      return request.auth != null && uid == request.auth.uid
+        && r.keys().hasAll(['lastAt','board','recordId']) && r.keys().hasOnly(['lastAt','board','recordId'])
+        && r.lastAt == request.time && r.board is string && r.recordId is string
+        && !exists(record) && getAfter(record).data.uid == uid && getAfter(record).data.submittedAt == request.time;
+    }
     function validRecord(r, board, recordId) {
       return r.keys().hasAll(['id','nickname','difficulty','version','scoringVersion','round','completedRounds','reason','score','bonus','elapsedMs','attempts','matchedPairs','createdAt','uid','submittedAt'])
         && r.keys().hasOnly(['id','nickname','difficulty','version','scoringVersion','round','completedRounds','reason','score','bonus','elapsedMs','attempts','matchedPairs','createdAt','uid','submittedAt'])
@@ -39,14 +61,21 @@ service cloud.firestore {
         && r.score is int && r.score == r.matchedPairs * 100 + r.bonus
         && r.elapsedMs is number && r.elapsedMs >= 0 && r.elapsedMs <= totalSeconds(r.round,r.difficulty) * 1000
         && r.attempts is int && r.attempts >= r.matchedPairs && r.attempts <= 5000000
-        && r.createdAt is number && r.createdAt >= 0 && r.createdAt <= 9007199254740991
+        && validTiming(r)
+        && r.createdAt == request.time
         && r.submittedAt == request.time;
     }
     match /leaderboards/{board}/records/{recordId} {
       allow get: if request.auth != null;
       allow list: if request.auth != null && request.query.limit != null && request.query.limit <= 100;
-      allow create: if request.auth != null && validRecord(request.resource.data,board,recordId);
+      allow create: if request.auth != null && validRecord(request.resource.data,board,recordId) && linkedSubmission(board,recordId);
       allow update, delete: if false;
+    }
+    match /submissionLimits/{uid} {
+      allow get: if request.auth != null && uid == request.auth.uid;
+      allow create: if validLimit(uid);
+      allow update: if validLimit(uid) && request.time >= resource.data.lastAt + duration.value(10,'s');
+      allow list, delete: if false;
     }
   }
 }

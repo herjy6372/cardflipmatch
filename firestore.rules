@@ -7,6 +7,28 @@ service cloud.firestore {
         : difficulty == 'normal' ? [0,30,59,87,114,140,178,215,251,286,320,366,411,455,498,540,594,647,699,750,800,862,923,983,1042,1100,1170,1239,1307,1374,1440,1518,1595,1671,1746,1820,1906,1991,2075,2158,2240,2342,2443,2543,2642,2740,2858,2975,3091,3206,3320][round]
         : [0,22,43,63,82,100,128,155,181,206,230,264,297,329,360,390,430,469,507,544,580,626,671,715,758,800,852,903,953,1002,1050,1108,1165,1221,1276,1330,1394,1457,1519,1580,1640,1716,1791,1865,1938,2010,2098,2185,2271,2356,2440][round];
     }
+    function validTiming(r) {
+      let completed = totalSeconds(r.completedRounds,r.difficulty);
+      let total = totalSeconds(r.round,r.difficulty);
+      let used = completed - r.bonus / 10;
+      let minimum = r.reason == 'timeout' ? total - r.bonus / 10 - r.completedRounds : used - r.completedRounds;
+      return r.elapsedMs >= minimum * 1000
+        && r.elapsedMs <= (total - r.bonus / 10) * 1000
+        && r.elapsedMs >= r.attempts * 100
+        && r.elapsedMs >= (r.attempts - r.matchedPairs - 1) * 500;
+    }
+    function linkedSubmission(board, recordId) {
+      let limit = getAfter(/databases/$(database)/documents/submissionLimits/$(request.auth.uid)).data;
+      return limit.lastAt == request.time && limit.board == board && limit.recordId == recordId;
+    }
+    function validLimit(uid) {
+      let r = request.resource.data;
+      let record = /databases/$(database)/documents/leaderboards/$(r.board)/records/$(r.recordId);
+      return request.auth != null && uid == request.auth.uid
+        && r.keys().hasAll(['lastAt','board','recordId']) && r.keys().hasOnly(['lastAt','board','recordId'])
+        && r.lastAt == request.time && r.board is string && r.recordId is string
+        && !exists(record) && getAfter(record).data.uid == uid && getAfter(record).data.submittedAt == request.time;
+    }
     function validRecord(r, board, recordId) {
       return r.keys().hasAll(['id','nickname','difficulty','version','scoringVersion','round','completedRounds','reason','score','bonus','elapsedMs','attempts','matchedPairs','createdAt','uid','submittedAt'])
         && r.keys().hasOnly(['id','nickname','difficulty','version','scoringVersion','round','completedRounds','reason','score','bonus','elapsedMs','attempts','matchedPairs','createdAt','uid','submittedAt'])
@@ -29,14 +51,21 @@ service cloud.firestore {
         && r.score is int && r.score == r.matchedPairs * 100 + r.bonus
         && r.elapsedMs is number && r.elapsedMs >= 0 && r.elapsedMs <= totalSeconds(r.round,r.difficulty) * 1000
         && r.attempts is int && r.attempts >= r.matchedPairs && r.attempts <= 5000000
-        && r.createdAt is number && r.createdAt >= 0 && r.createdAt <= 9007199254740991
+        && validTiming(r)
+        && r.createdAt == request.time
         && r.submittedAt == request.time;
     }
     match /leaderboards/{board}/records/{recordId} {
       allow get: if request.auth != null;
       allow list: if request.auth != null && request.query.limit != null && request.query.limit <= 100;
-      allow create: if request.auth != null && validRecord(request.resource.data,board,recordId);
+      allow create: if request.auth != null && validRecord(request.resource.data,board,recordId) && linkedSubmission(board,recordId);
       allow update, delete: if false;
+    }
+    match /submissionLimits/{uid} {
+      allow get: if request.auth != null && uid == request.auth.uid;
+      allow create: if validLimit(uid);
+      allow update: if validLimit(uid) && request.time >= resource.data.lastAt + duration.value(10,'s');
+      allow list, delete: if false;
     }
   }
 }

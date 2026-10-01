@@ -4,6 +4,10 @@ HTML·CSS·JavaScript로 만든 PC·모바일용 메모리 게임입니다. 쉬�
 
 ## 실행
 
+- [GitHub Pages에서 게임 실행](https://herjy6372.github.io/cardflipmatch/)
+- [Firebase Hosting에서 게임 실행](https://cardflipmatch-herjy6372.web.app/)
+
+
 로컬 게임은 `index.html`을 Chrome/Edge에서 열면 됩니다. 별명·나이·성별·캐릭터·난이도를 선택하고 게임을 시작하세요. 나이·성별은 ‘선택 안 함’이 있으며 저장하거나 전송하지 않습니다.
 
 현재 Firebase 온라인 모드가 활성화되어 있습니다. HTTP/HTTPS로 실행해야 하며, 파일을 더블클릭하면 로컬 모드로 동작합니다. Python이 있다면 프로젝트 폴더에서:
@@ -49,11 +53,11 @@ Firebase 활성화 시 v4 미전송 기록을 업로드하고 공유 순위 상�
 
 `CardFlipMatch` 프로젝트(`cardflipmatch-herjy6372`)의 웹 앱이 연결되어 있고 `enabled:true`입니다. 익명 로그인과 서울 리전(`asia-northeast3`)의 기본 Firestore를 사용합니다. 보안 규칙과 순위용 복합 색인을 콘솔에 적용했습니다. Firebase 설정 객체는 웹 앱의 공개 연결 정보이며 관리자 비밀 키가 아닙니다.
 
-2026-10-01에 실제 종료 기록 업로드와 온라인 순위 조회를 확인했습니다. 서로 다른 저장 공간(`127.0.0.1`/`localhost`)의 두 클라이언트에서 같은 순위표가 표시되었습니다. 연결 확인용 0점 기록 두 개가 보통 난이도 순위에 남아 있습니다. 아직 공개 웹 호스팅은 배포하지 않았습니다.
+2026-10-01에 실제 종료 기록 업로드와 온라인 순위 조회를 확인했습니다. 서로 다른 저장 공간(`127.0.0.1`/`localhost`)의 두 클라이언트에서 같은 순위표가 표시되었습니다. 연결·배포 테스트 기록은 정리했고 Firebase Hosting과 GitHub Pages로 공개했습니다.
 
 **[Firebase 설정 안내](docs/firebase-setup.md)** 순서대로 프로젝트·웹 앱 생성 → 익명 로그인 활성화 → Firestore 생성 → 규칙/색인 적용 → `js/firebase-config.js` 입력 및 활성화를 진행하세요.
 
-설정 파일은 `firebase.json`, `firestore.rules`, `firestore.indexes.json`입니다. 규칙은 레코드 필드와 점수 범위를 검증하고 수정·삭제를 막습니다. 클라이언트 점수만으로 실제 플레이를 증명할 수는 없으며, 경쟁이나 보상이 있는 서비스에는 별도 서버 검증이 필요합니다.
+설정 파일은 `firebase.json`, `firestore.rules`, `firestore.indexes.json`입니다. 규칙은 점수·보너스·시간의 관계, 서버 제출 시각과 계정별 10초 제출 간격을 검증하고 수정·삭제를 막습니다. [점수 보호와 테스트 안내](docs/score-protection.md)를 참고하세요. 클라이언트 점수만으로 실제 플레이를 증명할 수는 없으며, 경쟁이나 보상이 있는 서비스에는 별도 서버 검증이 필요합니다.
 
 ## 파일 구성
 
