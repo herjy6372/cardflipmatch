@@ -182,6 +182,7 @@
     $("ranking-description").textContent=online?"공유 순위표의 상위 100개 기록이에요. 같은 난이도끼리 비교하며 실시간으로 갱신돼요.":"이 브라우저에 저장된 최근 500개 게임 중 같은 난이도의 기록이에요.";
     $("my-rank").textContent=mine?`${profile.nickname}님은 ${online?"온라인":"로컬"} ${mine.rank}위예요!`:online?"이번 기록이 동기화 중이거나 온라인 상위 100개 기록에 포함되지 않았어요.":"이번 도전의 순위를 확인해 보세요.";
     const body=$("ranking-body"); body.replaceChildren();
+    $("ranking-empty").hidden=entries.length!==0;
     for (const entry of entries) {
       const row=document.createElement("tr");
       if (entry.id===finalResult.id) { row.className="current-record"; row.setAttribute("aria-current","true"); }
