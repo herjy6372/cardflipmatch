@@ -1,6 +1,6 @@
 # Firebase 공유 순위 설정
 
-게임 코드는 준비되어 있으며, 현재 `js/firebase-config.js`의 `enabled:false`로 로컬 모드입니다. 실제 Firebase 프로젝트 생성·로그인·규칙 배포와 기기 간 확인은 프로젝트 소유자가 진행해야 합니다.
+현재 `cardflipmatch-herjy6372` 프로젝트의 웹 앱을 등록하고 `js/firebase-config.js`에 연결했습니다. `enabled:true`이며 익명 로그인이 활성화되어 있습니다. 서울 리전(`asia-northeast3`)의 기본 Firestore에 게임 전용 규칙과 복합 색인을 적용했습니다. 2026-10-01에 실제 게임 기록 업로드와 서로 다른 저장 공간의 클라이언트 간 공유 순위를 확인했습니다. 아래 절차는 프로젝트 재설정이나 다른 프로젝트로 변경할 때 참고하세요.
 
 ## 1. 프로젝트와 웹 앱 만들기
 
@@ -59,6 +59,6 @@ python -m http.server 8765 --bind 127.0.0.1
 - 로컬 기록은 전체 난이도 합계 최근 500개까지 보관합니다. 미전송 기록도 이 한도에 포함되므로 500개를 넘기기 전에 동기화하세요. 로컬 저장이 차단되면 새로고침 전 현재 실행에서만 재시도할 수 있습니다.
 - 익명 계정은 브라우저 저장소에 연결됩니다. 저장소를 지우거나 브라우저를 바꾸면 새 사용자 ID가 생깁니다. 동일 별명의 다른 게임은 각각 기록되며, 개인 계정의 기기 간 복원 기능은 포함하지 않습니다.
 - 규칙은 잘못된 필드와 점수 범위를 검사하지만 실제 플레이를 증명하지 않습니다. 경쟁/보상이 있는 서비스라면 서버에서 플레이·점수를 검증하고 App Check 및 요청 제한을 추가해야 합니다.
-- 실제 Firebase 프로젝트가 아직 없으므로 실제 서버 연결과 규칙 배포 검증은 수행하지 않았습니다. 자동 테스트는 로컬 게임과 Firebase SDK 대역을 이용한 동기화 동작을 검증합니다.
+- 자동 회귀 테스트는 온라인 연결을 차단한 로컬 게임과 Firebase SDK 대역을 이용한 동기화 동작을 검증합니다. 실제 서버의 게임 기록 저장과 순위 조회는 브라우저에서 별도로 확인합니다.
 
 공식 문서: [웹 SDK 연결](https://firebase.google.com/docs/web/alt-setup), [익명 로그인](https://firebase.google.com/docs/auth/web/anonymous-auth), [Firestore 보안 규칙](https://firebase.google.com/docs/firestore/security/get-started), [실시간 순위 구독](https://firebase.google.com/docs/firestore/query-data/listen).

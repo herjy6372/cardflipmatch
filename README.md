@@ -6,7 +6,7 @@ HTML·CSS·JavaScript로 만든 PC·모바일용 메모리 게임입니다. 쉬�
 
 로컬 게임은 `index.html`을 Chrome/Edge에서 열면 됩니다. 별명·나이·성별·캐릭터·난이도를 선택하고 게임을 시작하세요. 나이·성별은 ‘선택 안 함’이 있으며 저장하거나 전송하지 않습니다.
 
-Firebase 모드에서는 HTTP/HTTPS로 실행해야 합니다. Python이 있다면 프로젝트 폴더에서:
+현재 Firebase 온라인 모드가 활성화되어 있습니다. HTTP/HTTPS로 실행해야 하며, 파일을 더블클릭하면 로컬 모드로 동작합니다. Python이 있다면 프로젝트 폴더에서:
 
 ```powershell
 python -m http.server 8765 --bind 127.0.0.1
@@ -47,7 +47,9 @@ Firebase 활성화 시 v4 미전송 기록을 업로드하고 공유 순위 상�
 
 ## Firebase 설정
 
-현재 기본값은 `enabled:false`이며 실제 Firebase 프로젝트는 아직 연결하지 않았습니다.
+`CardFlipMatch` 프로젝트(`cardflipmatch-herjy6372`)의 웹 앱이 연결되어 있고 `enabled:true`입니다. 익명 로그인과 서울 리전(`asia-northeast3`)의 기본 Firestore를 사용합니다. 보안 규칙과 순위용 복합 색인을 콘솔에 적용했습니다. Firebase 설정 객체는 웹 앱의 공개 연결 정보이며 관리자 비밀 키가 아닙니다.
+
+2026-10-01에 실제 종료 기록 업로드와 온라인 순위 조회를 확인했습니다. 서로 다른 저장 공간(`127.0.0.1`/`localhost`)의 두 클라이언트에서 같은 순위표가 표시되었습니다. 연결 확인용 0점 기록 두 개가 보통 난이도 순위에 남아 있습니다. 아직 공개 웹 호스팅은 배포하지 않았습니다.
 
 **[Firebase 설정 안내](docs/firebase-setup.md)** 순서대로 프로젝트·웹 앱 생성 → 익명 로그인 활성화 → Firestore 생성 → 규칙/색인 적용 → `js/firebase-config.js` 입력 및 활성화를 진행하세요.
 
@@ -73,7 +75,7 @@ node tests/media.test.cjs
 node tests/cloud.test.cjs
 ```
 
-설치된 Chrome을 사용한다면 `GAME_TEST_BROWSER` 환경변수로 실행 파일을 지정합니다. 게임 테스트는 파일 실행, 미디어 테스트는 HTTP 게임 테스트 및 음원/캐릭터 실패 대응을 확인합니다. 동기화 테스트는 Firebase SDK 대역으로 오프라인 보관·재시도·중복 방지·구독 종료를 확인하며 실제 서버·규칙 배포를 검증하지는 않습니다. 결과와 스크린샷은 `.tools/test-results/`에 저장합니다.
+설치된 Chrome을 사용한다면 `GAME_TEST_BROWSER` 환경변수로 실행 파일을 지정합니다. 게임 테스트는 파일 실행, 미디어 테스트는 HTTP 게임 테스트 및 음원/캐릭터 실패 대응을 확인합니다. 회귀 테스트는 테스트 전용 브라우저 설정으로 온라인 연결을 끄므로 실제 공유 순위에 가짜 기록을 올리지 않습니다. 동기화 테스트는 Firebase SDK 대역으로 오프라인 보관·재시도·중복 방지·구독 종료를 확인합니다. 실제 서버 연결은 별도로 브라우저에서 확인합니다. 결과와 스크린샷은 `.tools/test-results/`에 저장합니다.
 
 난이도 설정 변경 시 `.tools/build-firestore-rules.cjs`로 규칙의 누적 점수/시간 상한을 다시 생성하고 버전·문서·테스트도 함께 갱신해야 합니다.
 

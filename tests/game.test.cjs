@@ -5,6 +5,7 @@ const path=require('node:path');
 const vm=require('node:vm');
 const {pathToFileURL}=require('node:url');
 const {chromium}=require('playwright');
+const offlineContext=require('./offline-context.cjs');
 const root=path.resolve(__dirname,'..');
 const url=process.env.GAME_TEST_URL || pathToFileURL(path.join(root,'index.html')).href;
 const screenshotDir=path.join(root,'.tools','test-results');
@@ -87,7 +88,7 @@ async function checkOverflow(page,label){assert.equal(await page.evaluate(()=>do
   pass('Difficulty rankings are separated and successful uploads leave the pending queue');
   const browser=await chromium.launch({headless:true,...(process.env.GAME_TEST_BROWSER?{executablePath:process.env.GAME_TEST_BROWSER}:{})});
   try {
-    const context=await browser.newContext({viewport:{width:1280,height:1000}});
+    const context=await offlineContext(browser,{viewport:{width:1280,height:1000}});
     const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
     await page.goto(url);await page.locator('#character-sprite').waitFor({state:'visible'});
     await page.evaluate(()=>{window.__fixedTime=100000;Date.now=()=>window.__fixedTime;});
@@ -178,7 +179,7 @@ async function checkOverflow(page,label){assert.equal(await page.evaluate(()=>do
     pass('Easy/hard gameplay, difficulty selection persistence and isolated ranking UI');
     await page.evaluate(()=>localStorage.setItem(CardFlipMatch.storage.key,'{broken'));await page.reload();await start(page);await quit(page);assert.equal(await view(page),'result');assert.equal(await page.locator('#notice').isVisible(),true);
     assert.deepEqual(errors,[]);await context.close();
-    const blocked=await browser.newContext();await blocked.addInitScript(()=>{Storage.prototype.getItem=()=>{throw new Error('blocked')};Storage.prototype.setItem=()=>{throw new Error('blocked')};});
+    const blocked=await offlineContext(browser);await blocked.addInitScript(()=>{Storage.prototype.getItem=()=>{throw new Error('blocked')};Storage.prototype.setItem=()=>{throw new Error('blocked')};});
     const p2=await blocked.newPage();await p2.goto(url);await start(p2);await solve(p2);assert.equal((await records(p2)).length,0);await quit(p2);await p2.locator('#show-ranking').click();assert.equal(await p2.locator('#ranking-body tr').count(),1);
     pass('Corrupt or denied storage: cumulative session results still work');await blocked.close();
     fs.writeFileSync(path.join(screenshotDir,'results.json'),JSON.stringify({url,passed:reports,date:new Date().toISOString()},null,2));

@@ -4,6 +4,7 @@ const path=require('node:path');
 const http=require('node:http');
 const {spawn}=require('node:child_process');
 const {chromium}=require('playwright');
+const offlineContext=require('./offline-context.cjs');
 const root=path.resolve(__dirname,'..');
 const out=path.join(root,'.tools','test-results');
 const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.mp3':'audio/mpeg'};
@@ -30,7 +31,7 @@ const results=[];const pass=text=>{results.push(text);console.log('PASS '+text);
     // Reuse the complete game suite on HTTP as well as file://.
     await new Promise((resolve,reject)=>{const child=spawn(process.execPath,[path.join(__dirname,'game.test.cjs')],{env:{...process.env,GAME_TEST_URL:url},stdio:'inherit'});child.on('error',reject);child.on('exit',code=>code===0?resolve():reject(new Error(`HTTP game tests failed: ${code}`)));});
     pass('Complete game suite also passes on local HTTP');
-    const context=await browser.newContext({viewport:{width:1280,height:1000}});
+    const context=await offlineContext(browser,{viewport:{width:1280,height:1000}});
     await context.addInitScript(()=>{
       const NativeAudio=window.Audio;window.__audios=[];
       window.Audio=function(...args){const a=new NativeAudio(...args);window.__audios.push(a);return a;};
@@ -89,20 +90,20 @@ const results=[];const pass=text=>{results.push(text);console.log('PASS '+text);
     assert.equal(await p.locator('#character-sprite').evaluate(el=>el.style.backgroundPositionX),'100%');
     pass('Both character sets: all 6 motions, static success pose and reduced motion');
     assert.deepEqual(errors,[]);assert.deepEqual(failed,[]);await context.close();
-    const fallbacks=await browser.newContext();
+    const fallbacks=await offlineContext(browser);
     await fallbacks.route('**/images/characters/*/reactions-v1.png',r=>r.abort());
     const fp=await fallbacks.newPage();await fp.goto(url);await start(fp);
     await fp.waitForFunction(()=>document.getElementById('character-sprite').style.backgroundImage.includes('static-poses'));
     assert.equal(await fp.locator('body').getAttribute('data-view'),'play');
     await fallbacks.close();pass('Missing animated sheet uses independent static pose sheet');
-    const missing=await browser.newContext();
+    const missing=await offlineContext(browser);
     await missing.route('**/images/**',r=>r.abort());await missing.route('**/sounds/**',r=>r.abort());
     const mp=await missing.newPage();const missingErrors=[];mp.on('pageerror',e=>missingErrors.push(e.message));
     await mp.goto(url);await mp.locator('#character-fallback').waitFor({state:'visible'});await start(mp);await solve(mp);assert.equal(await mp.locator('body').getAttribute('data-view'),'round-clear');await mp.locator('#round-clear-panel .quit-button').click();assert.equal(await mp.locator('body').getAttribute('data-view'),'result');assert.deepEqual(missingErrors,[]);
     pass('All images and audio missing: name fallback and complete gameplay remain available');await missing.close();
     // Last-pair boundary: a selection at zero must fail; a selection with time left succeeds.
     for(const remaining of [1,0]){
-      const c=await browser.newContext();const q=await c.newPage();await q.goto(url);
+      const c=await offlineContext(browser);const q=await c.newPage();await q.goto(url);
       await q.evaluate(()=>{window.__fixedTime=100000;Date.now=()=>window.__fixedTime;});await start(q);
       await q.evaluate(left=>{
         const bs=[...document.querySelectorAll('.card')].sort((a,b)=>a.dataset.id.localeCompare(b.dataset.id));
